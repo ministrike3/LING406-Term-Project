@@ -23,9 +23,9 @@ def create_bag_of_words(name, reviews):
             line = [word for word in line if word not in set(nltk.corpus.stopwords.words('english'))]
             for word in line:
                 word_bag[word] = word_bag.get(word, 0) + 1
-    #with open(name,'w') as f:
-    #    for i in sorted(word_bag, key=word_bag.get,reverse=True):
-    #        f.write("%s %d\n" %(i,word_bag[i]))
+    with open(name,'w') as f:
+        for i in sorted(word_bag, key=word_bag.get,reverse=True):
+            f.write("%s %d\n" %(i,word_bag[i]))
     return word_bag
 
 def load_bag_of_words(file):
@@ -38,14 +38,14 @@ def load_bag_of_words(file):
 
     return word_bag
 
-def statistically_split_word_lists(neg, pos):
+def statistically_split_word_lists(neg, pos,thresh):
     pos_words = {}
     neg_words = {}
     for key in neg.keys():
         if key in pos.keys():
-            if pos[key] >= neg[key]:
+            if int(pos[key]) >= thresh*int(neg[key]):
                 pos_words[key]=pos[key]
-            else:
+            elif int(neg[key])> thresh*int(pos[key]):
                 neg_words[key]=neg[key]
         else:
             neg_words[key] = neg[key]
@@ -74,29 +74,32 @@ def run_bag_of_words_classification(neg, pos, _file):
         return 0
 
 if __name__ == "__main__":
+    max_length=int(input("define a max_length/vocab size for the BoW"))
+    threshold_for_selection=float(input("Define a cutoff max ie 1.2"))
     negative_movie_review_files, positive_movie_review_files = get_movie_review_data()
     name= './neg_word_bag.txt'
-    #negative_bag_of_words = create_bag_of_words(name, negative_movie_review_files[:900])
+    #negative_bag_of_words = create_bag_of_words(name, negative_movie_review_files[:750])
     #print(len(negative_bag_of_words.keys()))
     negative_bag_of_words=load_bag_of_words(name)
     print(len(negative_bag_of_words.keys()))
 
     name= './pos_word_bag.txt'
-    #positive_bag_of_words = create_bag_of_words(name, positive_movie_review_files[:900])
+    #positive_bag_of_words = create_bag_of_words(name, positive_movie_review_files[:750])
     #print(len(positive_bag_of_words.keys()))
     positive_bag_of_words=load_bag_of_words(name)
     print(len(positive_bag_of_words.keys()))
 
-    neg_keys, pos_keys = statistically_split_word_lists(negative_bag_of_words, positive_bag_of_words)
+    neg_keys, pos_keys = statistically_split_word_lists(negative_bag_of_words, positive_bag_of_words,threshold_for_selection)
     print(len(neg_keys))
     print(len(pos_keys))
-    neg_keys = sorted(neg_keys, key=neg_keys.get, reverse=True)[:len(neg_keys)]
-    pos_keys = sorted(pos_keys, key=pos_keys.get, reverse=True)[:len(neg_keys)]
+    neg_keys = sorted(neg_keys, key=neg_keys.get, reverse=True)[:max_length]
+    pos_keys = sorted(pos_keys, key=pos_keys.get, reverse=True)[:max_length]
     negative_score = 0
     positive_score = 0
-    for file in negative_movie_review_files[900:]:
+    for file in negative_movie_review_files[750:]:
         negative_score += run_bag_of_words_classification(neg_keys, pos_keys, file)
-    print((100-negative_score)/100)
-    for file in positive_movie_review_files[900:]:
+    print((250-negative_score)/250)
+    for file in positive_movie_review_files[750:]:
         positive_score += run_bag_of_words_classification(neg_keys, pos_keys, file)
-    print(positive_score/100)
+    print(positive_score/250)
+    print((((250-negative_score)/250)+(positive_score/250))/2)

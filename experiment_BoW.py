@@ -45,7 +45,8 @@ def load_bag_of_words(file):
 
     return word_bag
 
-def statistically_split_word_lists(neg, pos,thresh):
+
+def statistically_split_word_lists(neg, pos, thresh):
     pos_words = {}
     neg_words = {}
     for key in neg.keys():
@@ -65,7 +66,7 @@ def statistically_split_word_lists(neg, pos,thresh):
         return neg_words, pos_words
 
 
-def run_bag_of_words_classification(neg, pos, _file):
+def run_bag_of_words_classification(neg, pos, negscore, posscore, max_neg_score, max_pos_score, _file):
     score = 0
     with open(_file, 'r') as f:
         line = f.read()
@@ -75,9 +76,9 @@ def run_bag_of_words_classification(neg, pos, _file):
         line = [word for word in line if len(word) > 1]
         for word in line:
             if word in neg:
-                score -= 1
+                score -= 1*int(negscore[word])/max_neg_score
             if word in pos:
-                score += 1
+                score += 1*int(posscore[word])/max_pos_score
     if score >= 0:
         return 1
     else:
@@ -109,13 +110,19 @@ if __name__ == "__main__":
     print(len(pos_keys))
     #max_length=max(len(neg_keys),len(pos_keys))
     neg_keys = sorted(neg_keys, key=neg_keys.get, reverse=True)[:max_length]
+    for i in neg_keys[:10]:
+        print("%s %d" %(i,int(negative_bag_of_words[i])))
     pos_keys = sorted(pos_keys, key=pos_keys.get, reverse=True)[:max_length]
+    for i in pos_keys[:10]:
+        print("%s %d" %(i,int(positive_bag_of_words[i])))
+    max_neg = int(negative_bag_of_words[neg_keys[0]])
+    max_pos = int(positive_bag_of_words[pos_keys[0]])
     negative_score = 0
     positive_score = 0
     for file in negative_movie_review_files[750:]:
-        negative_score += run_bag_of_words_classification(neg_keys, pos_keys, file)
+        negative_score += run_bag_of_words_classification(neg_keys, pos_keys,negative_bag_of_words,positive_bag_of_words,max_neg,max_pos, file)
     print((250-negative_score)/250)
     for file in positive_movie_review_files[750:]:
-        positive_score += run_bag_of_words_classification(neg_keys, pos_keys, file)
+        positive_score += run_bag_of_words_classification(neg_keys, pos_keys,negative_bag_of_words,positive_bag_of_words,max_neg,max_pos, file)
     print(positive_score/250)
     print((((250-negative_score)/250)+(positive_score/250))/2)

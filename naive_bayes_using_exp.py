@@ -26,7 +26,7 @@ def naive_bayes(neg_bow, pos_bow,neg_size,pos_size, _file):
                 positive_chance += math.log(int(pos_bow[word])/pos_size)
             else:
                 positive_chance += math.log(1/pos_size)
-    #print(negative_chance, positive_chance)
+    # print(negative_chance, positive_chance)
     if negative_chance > positive_chance:
         return 0
     else:

@@ -43,7 +43,7 @@ if __name__ == "__main__":
     vocab = create_svm_dataset()
     negative_movie_review_files, positive_movie_review_files = get_movie_review_data()
     count_vect = sklearn.feature_extraction.text.CountVectorizer(input='filename',tokenizer=blah_tokenize,vocabulary=vocab)
-    clf = sklearn.neighbors.KNeighborsClassifier(n_neighbors=3)
+    clf = sklearn.neighbors.KNeighborsClassifier()
 
     X_train_counts = count_vect.fit_transform(negative_movie_review_files)
     y_cats = [0]*750+[1]*750

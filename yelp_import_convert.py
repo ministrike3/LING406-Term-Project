@@ -7,6 +7,7 @@ import sklearn.tree
 import glob
 import string
 from experiment_BoW import statistically_split_word_lists
+import nltk.tokenize.moses
 
 def get_yelp_data():
     with open('./yelp_reviews/all_reviews.txt', 'r') as f:
@@ -116,22 +117,51 @@ def yelp_word_bag_generator(reviews,name):
         for _ in sorted(word_bag, key=word_bag.get, reverse=True):
             f.write("%s %d\n" % (_, word_bag[_]))
     return word_bag
+
+
+def generate_svm_featureset(neg_bow,pos_bow):
+    review_word_index = []
+    for word in neg_bow.keys():
+        review_word_index.append(word)
+    for word in pos_bow.keys():
+        review_word_index.append(word)
+    review_word_index = sorted(list(set(review_word_index)))
+    return review_word_index
+
+
+def blah_tokenize(line):
+    line = line.split(" ")
+    if punc:
+        line = [word.translate(str.maketrans('', '', string.punctuation)) for word in line]
+    if alpha:
+        line = [word for word in line if word.isalpha()]
+    if signif:
+        line = [word for word in line if len(word) > 1]
+    if stopword:
+        line = [word for word in line if word not in set(nltk.corpus.stopwords.words('english'))]
+    if negation:
+        line = nltk.sentiment.util.mark_negation(line)
+    return(line)
+
 if __name__ == "__main__":
-    punc=1
-    alpha=1
-    signif=1
-    stopword=1
-    max_length=1
-    negation=0
-    weighting=0
-    threshold_for_selection=1
+    punc = int(input("should punctuation be removed"))
+    signif = int(input("should insignficant words be removed"))
+    alpha = int(input("should only alpha words be considered"))
+    stopword = int(input("should stopwords be removed"))
+    negation = int(input("should we mark negations"))
+    weighting = int(input("should we use weighting"))
+    max_length = int(input("define a max_length/vocab size for the BoW"))
+    threshold_for_selection = float(input("Define a cutoff max ie 1.2"))
+
+
+
     reviews=get_yelp_data()
     sorted_reviews=assign_yelp_data(reviews)
-    print(len(sorted_reviews[2]),len(sorted_reviews[3]))
     sorted_reviews=move_half_star_reviews_up(sorted_reviews)
-    print(len(sorted_reviews[2]),len(sorted_reviews[3]))
+
     sorted_reviews = break_up_review_data(sorted_reviews)
     neg_reviews_train, pos_reviews_train, neg_reviews_test, pos_reviews_test = split_into_neg_pos(sorted_reviews)
+
     neg_bag = yelp_word_bag_generator(neg_reviews_train,'./word_bags/yelp/negative_word_bag.txt')
     pos_bag = yelp_word_bag_generator(pos_reviews_train,'./word_bags/yelp/positive_word_bag.txt')
     neg_keys, pos_keys = statistically_split_word_lists(neg_bag, pos_bag, max_length, threshold_for_selection)
@@ -157,11 +187,12 @@ if __name__ == "__main__":
     x=0
     for review in neg_reviews_test:
         x+=run_bag_of_words_classification(neg_bag,pos_bag,max_neg,max_pos,review,weighting)
-    print((900-x)/900)
+    red=((900-x)/900)
     x=0
     for review in pos_reviews_test:
         x+=run_bag_of_words_classification(neg_bag,pos_bag,max_neg,max_pos,review,weighting)
-    print(x/1200)
+    blue=(x/1200)
+    print((red+blue)/2)
 
     print('Naive Bayes')
 
@@ -171,9 +202,74 @@ if __name__ == "__main__":
     x=0
     for review in neg_reviews_test:
         x+=naive_bayes(neg_keys, pos_keys, neg_size, pos_size, review)
-    print((900-x)/900)
+    blue=((900-x)/900)
     x=0
     for review in pos_reviews_test:
         x+=naive_bayes(neg_keys, pos_keys, neg_size, pos_size, review)
-    print(x/1200)
+    red=(x/1200)
+    print((red+blue)/2)
 
+    #### SVM CLassifier
+    print('SVM')
+    vocab = generate_svm_featureset(neg_keys, pos_keys)
+
+    train=[]
+    for index in range(0,len(neg_reviews_train)):
+        train.append(" ".join(neg_reviews_train[index]))
+    for index in range(0,len(pos_reviews_train)):
+        train.append(" ".join(pos_reviews_train[index]))
+    test=[]
+    for index in range(0,len(neg_reviews_test)):
+        test.append(" ".join(neg_reviews_test[index]))
+    for index in range(0,len(pos_reviews_test)):
+        test.append(" ".join(pos_reviews_test[index]))
+    count_vect = sklearn.feature_extraction.text.CountVectorizer(input='content', tokenizer=blah_tokenize,
+                                                                 vocabulary=vocab)
+    clf = sklearn.linear_model.SGDClassifier()
+
+    X_train_counts = count_vect.fit_transform(train)
+    y_cats = [0] * len(neg_reviews_train) + [1] * len(pos_reviews_train)
+    clf.fit(X_train_counts, y_cats)
+
+    X_test_counts = count_vect.fit_transform(test)
+    scores = clf.predict(X_test_counts)
+    negative_score = 0
+    positive_score = 0
+    for i in range(0, len(neg_reviews_test)):
+        negative_score += scores[i]
+    for i in range(len(neg_reviews_test), len(neg_reviews_test)+len(pos_reviews_test)):
+        positive_score += scores[i]
+    blue=((len(neg_reviews_test) - negative_score) / len(neg_reviews_test))
+    red=((positive_score / len(pos_reviews_test)))
+
+    print((blue+red)/2)
+
+    #### Logistic
+    print('Logistic Regression')
+    clf = sklearn.linear_model.LogisticRegression()
+    clf.fit(X_train_counts, y_cats)
+    scores = clf.predict(X_test_counts)
+    negative_score = 0
+    positive_score = 0
+    for i in range(0, len(neg_reviews_test)):
+        negative_score += scores[i]
+    for i in range(len(neg_reviews_test), len(neg_reviews_test) + len(pos_reviews_test)):
+        positive_score += scores[i]
+    blue = ((len(neg_reviews_test) - negative_score) / len(neg_reviews_test))
+    red = (positive_score / len(pos_reviews_test))
+    print((blue + red) / 2)
+
+    #### Tree
+    print('Decision Tree')
+    clf = sklearn.tree.DecisionTreeClassifier()
+    clf.fit(X_train_counts, y_cats)
+    scores = clf.predict(X_test_counts)
+    negative_score = 0
+    positive_score = 0
+    for i in range(0, len(neg_reviews_test)):
+        negative_score += scores[i]
+    for i in range(len(neg_reviews_test), len(neg_reviews_test) + len(pos_reviews_test)):
+        positive_score += scores[i]
+    blue = ((len(neg_reviews_test) - negative_score) / len(neg_reviews_test))
+    red = ((positive_score / len(pos_reviews_test)))
+    print((blue + red) / 2)

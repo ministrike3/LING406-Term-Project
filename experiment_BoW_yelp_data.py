@@ -63,7 +63,7 @@ def statistically_split_word_lists(neg, pos, max_length, thresh):
     for key in pos.keys():
         if key not in neg.keys():
             pos_words[key] = pos[key]
-    #max_length=min(len(neg_words),len(pos_words))
+    max_length=min(len(neg_words),len(pos_words))
     neg_list = sorted(neg_words, key=neg_words.get, reverse=True)[:max_length]
     pos_list = sorted(pos_words, key=pos_words.get, reverse=True)[:max_length]
     new_neg={k:neg_words[k] for k in neg_list}
